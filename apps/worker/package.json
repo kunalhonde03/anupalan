@@ -1,0 +1,24 @@
+{
+  "name": "@anupalan/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --build",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@anupalan/db": "workspace:*",
+    "@anupalan/engine": "workspace:*",
+    "@anupalan/shared": "workspace:*",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}

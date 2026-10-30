@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Production build outputs
+.next
+dist
+build
+out
+.turbo
+
+# Test & coverage
+coverage
+test-results
+playwright-report
+blob-report
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Temporary & cache
+*.tsbuildinfo
+.eslintcache

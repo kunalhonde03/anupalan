@@ -1,0 +1,197 @@
+# ANUPALAN rule pack: APH 2024-25 to 2026-27 (STARTER, NOT AUTHORITATIVE)
+#
+# Legend (see docs/verification-list.md):
+#   V = seen in a public AICTE document during research
+#   P = placeholder; must be checked against the APH before it is shown as fact
+# Every numeric SLA below is P. The APH may not fix numeric stage timelines.
+# Do not present any P value in the UI or pitch as an AICTE rule.
+
+pack: aph-2024-27
+version: 0.1.0
+status: draft
+timezone: Asia/Kolkata
+corrigenda:
+  - ref: EVC-definition-2025-12-02      # V: EVC constituted by the Council (earlier: Regional Officer)
+    note: Applied to schedule_evc permission below
+holidays:
+  national_csv: rules/holidays-national-2026.csv   # Holiday dates and names
+  regional_csv: rules/holidays-regional-2026.csv   # Regional holiday dates
+weekend_days: [SAT, SUN]                            # P: confirm AICTE working calendar
+
+regions:                                            # P: replace with the official list
+  # Prefixes seen in EoA file numbers: Central, Eastern, Northern, North-West,
+  # Southern, South-West, Western. Confirm the full list and any North-East office.
+  - {code: CENTRAL,    name: Central}
+  - {code: EASTERN,    name: Eastern}
+  - {code: NORTHERN,   name: Northern}
+  - {code: NORTHWEST,  name: North-West}
+  - {code: SOUTHERN,   name: Southern}
+  - {code: SOUTHWEST,  name: South-West}
+  - {code: WESTERN,    name: Western}
+
+roles:
+  - INSTITUTION
+  - SCRUTINY_OFFICER
+  - REGIONAL_DIRECTOR
+  - EVC_CONVENER
+  - COMMITTEE_MEMBER
+  - COMPETENT_AUTHORITY
+  - SYSTEM_ADMIN
+  # SYSTEM is a non-human actor: alerts and date recompute only
+
+stages:
+  SUBMITTED:          {owner: INSTITUTION,         name: Application received}
+  SCRUTINY:           {owner: SCRUTINY_OFFICER,    name: Scrutiny}               # V stage exists
+  RE_SCRUTINY:        {owner: SCRUTINY_OFFICER,    name: Re-scrutiny}            # V
+  EVC:                {owner: EVC_CONVENER,        name: Expert Visit Committee} # V
+  REGIONAL_COMMITTEE: {owner: REGIONAL_DIRECTOR,   name: Regional Committee}     # V (cited in SAC/SHC reports)
+  SHC:                {owner: COMMITTEE_MEMBER,    name: Standing Hearing Committee}   # P: separate from SAC now?
+  SAC:                {owner: COMMITTEE_MEMBER,    name: Standing Appellate Committee} # P
+  DECISION:           {owner: COMPETENT_AUTHORITY, name: Decision}
+
+pathways:
+  only_scrutiny:
+    stages:
+      - {code: SCRUTINY, sla_days: 15, calendar: working, clause: APH-TBD}   # P
+      - {code: DECISION, sla_days: 10, calendar: working, clause: APH-TBD}   # P
+    allowed_reverts: {DECISION: [SCRUTINY]}
+  scrutiny_evc:
+    stages:
+      - {code: SCRUTINY, sla_days: 15, calendar: working, clause: APH-TBD}   # P
+      - {code: EVC,      sla_days: 30, calendar: working, clause: APH-TBD}   # P
+      - {code: DECISION, sla_days: 10, calendar: working, clause: APH-TBD}   # P
+    allowed_reverts: {EVC: [SCRUTINY], DECISION: [EVC, SCRUTINY]}
+  evc_sac_shc:
+    stages:
+      - {code: EVC,      sla_days: 30, calendar: working, clause: APH-TBD}   # P
+      - {code: SHC,      sla_days: 20, calendar: working, clause: APH-TBD}   # P
+      - {code: DECISION, sla_days: 10, calendar: working, clause: APH-TBD}   # P
+    allowed_reverts: {SHC: [EVC], DECISION: [SHC]}
+  only_evc:
+    stages:
+      - {code: EVC,      sla_days: 30, calendar: working, clause: APH-TBD}   # P
+      - {code: DECISION, sla_days: 10, calendar: working, clause: APH-TBD}   # P
+    allowed_reverts: {DECISION: [EVC]}
+  new_institution:                                   # P: whole sequence unverified
+    stages:
+      - {code: SCRUTINY,           sla_days: 20, calendar: working, clause: APH-TBD}   # P
+      - {code: EVC,                sla_days: 45, calendar: working, clause: APH-TBD}   # P
+      - {code: REGIONAL_COMMITTEE, sla_days: 15, calendar: working, clause: APH-TBD}   # P
+      - {code: DECISION,           sla_days: 15, calendar: working, clause: APH-TBD}   # P
+    allowed_reverts: {EVC: [SCRUTINY], REGIONAL_COMMITTEE: [EVC], DECISION: [REGIONAL_COMMITTEE]}
+
+application_types:                                   # P: mapping to pathways must be verified
+  - {code: EOA_EXISTING,     name: Extension of approval (existing),        pathway: only_scrutiny}
+  - {code: NEW_COURSE,       name: New course / increase in intake,         pathway: scrutiny_evc}   # V pairing seen in SAC/SHC report
+  - {code: NEW_PROGRAMME,    name: New programme or new level,              pathway: scrutiny_evc}   # V pairing seen
+  - {code: NEW_INSTITUTION,  name: New institution (LoA),                   pathway: new_institution}
+  - {code: HEARING_REFERRAL, name: Case referred for hearing,               pathway: evc_sac_shc}
+  - {code: VERIFICATION,     name: Verification-only,                       pathway: only_evc}
+  - {code: CLOSURE,          name: Course/institution closure,              pathway: only_scrutiny}  # P
+
+permissions:                                         # who may perform each action
+  complete_stage:       {roles: stage_owner}
+  return_to_institution: {roles: [stage_owner, REGIONAL_DIRECTOR], reason: required}
+  revert_stage:         {roles: [stage_owner, REGIONAL_DIRECTOR], reason: required, edge: allowed_reverts}
+  schedule_evc:         {roles: [REGIONAL_DIRECTOR]}  # P: Council constitutes EVC per Dec 2025 corrigendum
+  record_recommendation: {roles: [COMMITTEE_MEMBER]}
+  decide:               {roles: [COMPETENT_AUTHORITY], gate_ack: required}
+  verify_evidence:      {roles: [REGIONAL_DIRECTOR], delegable: true}
+  waive_or_extend:      {roles: [COMPETENT_AUTHORITY], reason: required}
+  edit_rule_pack:       {roles: [SYSTEM_ADMIN], impact_preview: required}
+  time_machine:         {roles: [SYSTEM_ADMIN], demo_mode_only: true}
+
+escalation_policies:                                 # offsets in working days unless noted; all P
+  stage_default:
+    - {offset: -3, level: REMIND_OWNER,               target: owner}                # P
+    - {offset:  0, level: OVERDUE_OWNER,              target: owner}                # P
+    - {offset:  3, level: ESCALATE_REGIONAL_DIRECTOR, target: REGIONAL_DIRECTOR}   # P
+    - {offset:  7, level: ESCALATE_HQ,                target: COMPETENT_AUTHORITY} # P
+  obligation_default:                                # calendar days
+    - {offset: -30, level: NOTICE_INSTITUTION,        target: institution}         # P
+    - {offset:  -7, level: REMIND_INSTITUTION,        target: institution}         # P
+    - {offset:  -3, level: REMIND_INSTITUTION,        target: institution}         # P
+    - {offset:   0, level: OVERDUE_INSTITUTION,       target: institution}         # P
+    - {offset:   3, level: ESCALATE_REGIONAL_DIRECTOR, target: REGIONAL_DIRECTOR} # P
+    - {offset:   7, level: ESCALATE_HQ,               target: COMPETENT_AUTHORITY} # P
+  document_expiry:                                   # calendar days, relative to valid_to
+    - {offset: -30, level: NOTICE_INSTITUTION,        target: institution}         # P
+    - {offset:  -7, level: REMIND_INSTITUTION,        target: institution}         # P
+    - {offset:  -3, level: REMIND_INSTITUTION,        target: institution}         # P
+    - {offset:   0, level: EXPIRED_INSTITUTION,       target: institution}         # P
+    - {offset:   3, level: ESCALATE_REGIONAL_DIRECTOR, target: REGIONAL_DIRECTOR} # P
+    - {offset:   7, level: ESCALATE_HQ,               target: COMPETENT_AUTHORITY} # P
+
+obligation_types:
+  DEFICIENCY_COMPLIANCE:
+    default_due: {months: 6, from: eoa_issue_date}   # V: letters say within six months of issue; P: month rule
+    severity_default: MAJOR
+    clause: APH-Ch6                                  # V: letters cite Chapter VI
+    categories: [FACULTY, LABORATORY, LIBRARY, OTHER_FACILITIES, PRINCIPAL_QUALIFICATION]   # V seen in letters
+    policy: obligation_default
+  UNDERTAKING:
+    default_due: {set_by: competent_authority}
+    severity_default: MAJOR
+    clause: APH-TBD
+    policy: obligation_default
+  PENDING_NOC:
+    default_due: {set_by: competent_authority}
+    severity_default: MAJOR
+    clause: APH-TBD
+    policy: obligation_default
+  CARRY_FORWARD:
+    default_due: {at: next_application_window}
+    severity_default: MINOR
+    clause: APH-TBD
+    policy: obligation_default
+  LEASE_VALIDITY:
+    default_due: {from: valid_to}
+    severity_default: CRITICAL
+    clause: APH-TBD                                  # P
+    policy: document_expiry
+  DOCUMENT_VALIDITY:
+    default_due: {from: valid_to}
+    severity_default: MAJOR
+    clause: APH-TBD                                  # P: which certificates are prescribed
+    policy: document_expiry
+
+lease_rule:                                          # V for APH 2020-23 FAQ; P for 2024-27
+  mode: live_years_vs_longest_course
+  # EoA not issued from the year live lease equals the longest course duration,
+  # unless lease is extended by 30 years with at least 25 years live lease.
+  extension_years: 30                                # P
+  min_live_years_after_extension: 25                 # P
+  amber_margin_years: 2                              # P: ANUPALAN setting, not an AICTE rule
+
+readiness_gate:
+  policy: ADVISE                                     # ADVISE | REQUIRE_HQ_COUNTERSIGN
+  checks:
+    overdue_obligations:        {critical: RED, other: AMBER}
+    due_within_days_30:         {level: INFO}
+    lease_below_requirement:    {below: RED, within_margin: AMBER}
+    document_expired_or_30d:    {expired: RED, expiring: AMBER}
+    repeated_deficiency:        {level: AMBER}
+    pending_noc:                {default: AMBER, closure_decision: RED}
+    carry_forward_open:         {level: AMBER}
+    unresolved_observations:    {level: AMBER}
+    prior_overrides:            {level: INFO}
+
+compliance_index:                                    # all weights P; transparent, no automatic penalty
+  start: 100                                         # P
+  overdue_obligation: {CRITICAL: -15, MAJOR: -8, MINOR: -3, cap: -60} # P
+  expired_document:   {each: -20, cap: -40}          # P
+  expiring_within_90d: {each: -5}                    # P
+  repeat_deficiency_category: {each: -5}             # P
+  evidence_rejected_twice: {each: -3}                # P
+  on_time_closures_12m: {each: 1, cap: 10}           # P
+  bands: {green_min: 85, amber_min: 60}              # P
+
+notifications:
+  channels: {in_app: true, email: true, sms: mock, whatsapp: mock}
+  digest: {daily_at: '08:00', per: officer}
+  instant_levels: [OVERDUE_OWNER, OVERDUE_INSTITUTION, EXPIRED_INSTITUTION, ESCALATE_REGIONAL_DIRECTOR, ESCALATE_HQ]
+
+audit:
+  seal_at: '23:59'
+  signing: ed25519                                   # key held outside the database
+  rfc3161_timestamp: roadmap

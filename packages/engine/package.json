@@ -1,0 +1,19 @@
+{
+  "name": "@anupalan/engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "lint": "eslint src test --ext .ts"
+  },
+  "dependencies": {
+    "@anupalan/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.3.1"
+  }
+}

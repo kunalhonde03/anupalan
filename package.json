@@ -1,0 +1,29 @@
+{
+  "name": "anupalan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ANUPALAN - The Obligation-Aware AICTE Approval & Compliance Platform (SIH 2026 PS 26262)",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "e2e"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"api,worker,web\" -c \"blue,green,magenta\" \"pnpm --filter @anupalan/api dev\" \"pnpm --filter @anupalan/worker dev\" \"pnpm --filter @anupalan/web dev\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx,.js",
+    "e2e": "pnpm --filter @anupalan/e2e test",
+    "db:reset": "pnpm --filter @anupalan/db db:reset",
+    "seed": "pnpm --filter @anupalan/db seed",
+    "build": "pnpm --recursive build"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.3.1"
+  }
+}
