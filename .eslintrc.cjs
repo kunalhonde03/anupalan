@@ -26,10 +26,11 @@ module.exports = {
   },
   overrides: [
     {
-      // Allow Date instantiation only in clock implementation
+      // Allow Date instantiation in clock implementation and seed script
       files: [
         'packages/engine/src/clock.ts',
-        'packages/engine/src/clock/**/*.ts'
+        'packages/engine/src/clock/**/*.ts',
+        'packages/db/src/seed.ts'
       ],
       rules: {
         'no-restricted-syntax': 'off'

@@ -8,8 +8,8 @@
     "build": "tsc --build",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "db:reset": "echo 'db:reset skeleton ready'",
-    "seed": "echo 'seed skeleton ready'"
+    "db:reset": "prisma migrate reset --force",
+    "seed": "tsx src/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2"

@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2020",
+    "downlevelIteration": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -19,7 +20,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@anupalan/engine": ["../../packages/engine/src/index.ts"],
+      "@anupalan/shared": ["../../packages/shared/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

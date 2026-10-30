@@ -1,4 +1,5 @@
 // ANUPALAN Database Schema (PostgreSQL)
+// SIH 2026 PS 26262: The Obligation-Aware AICTE Approval & Compliance Platform
 
 generator client {
   provider = "prisma-client-js"
@@ -9,10 +10,520 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Scaffold placeholder model for Phase 0
-model SystemMeta {
+// -----------------------------------------------------------------------------
+// 1. Identity & Organization
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  INSTITUTION
+  SCRUTINY_OFFICER
+  REGIONAL_DIRECTOR
+  EVC_CONVENER
+  COMMITTEE_MEMBER
+  COMPETENT_AUTHORITY
+  SYSTEM_ADMIN
+  SYSTEM
+}
+
+enum RegionCode {
+  CENTRAL
+  EASTERN
+  NORTHERN
+  NORTHWEST
+  SOUTHERN
+  SOUTHWEST
+  WESTERN
+}
+
+model Region {
+  id              String         @id @default(uuid())
+  code            RegionCode     @unique
+  name            String
+  directorUserId  String?
+  users           User[]
+  institutions    Institution[]
+  holidays        Holiday[]
+  createdAt       DateTime       @default(now())
+
+  @@map("regions")
+}
+
+model User {
+  id              String         @id @default(uuid())
+  name            String
+  email           String         @unique
+  role            UserRole
+  regionId        String?
+  region          Region?        @relation(fields: [regionId], references: [id])
+  institutionId   String?
+  institution     Institution?   @relation(fields: [institutionId], references: [id])
+  passwordHash    String         @default("hashed_demo_secret")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  assignedStages  StageInstance[]
+  evcMemberships  EvcMember[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model Institution {
+  id              String         @id @default(uuid())
+  aicteId         String         @unique
+  name            String
+  regionId        String
+  region          Region         @relation(fields: [regionId], references: [id])
+  institutionType String         @default("ENGINEERING_MANAGEMENT")
+  contactEmail    String
+  createdAt       DateTime       @default(now())
+
+  users           User[]
+  applications    Application[]
+  obligations     Obligation[]
+  documents       Document[]
+  complianceScores ComplianceScore[]
+
+  @@map("institutions")
+}
+
+model Delegation {
+  id           String    @id @default(uuid())
+  fromUserId   String
+  toUserId     String
+  validFrom    DateTime
+  validTo      DateTime
+  reason       String?
+  createdAt    DateTime  @default(now())
+
+  @@map("delegations")
+}
+
+// -----------------------------------------------------------------------------
+// 2. Rules & Configuration
+// -----------------------------------------------------------------------------
+
+enum RulePackStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model RulePack {
+  id           String         @id @default(uuid())
+  name         String
+  version      String         @unique
+  status       RulePackStatus @default(DRAFT)
+  publishedBy  String?
+  publishedAt  DateTime?
+  versionNote  String?
+  rawYaml      String         @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  pathways     Pathway[]
+
+  @@map("rule_packs")
+}
+
+model Pathway {
+  id           String         @id @default(uuid())
+  packId       String
+  rulePack     RulePack       @relation(fields: [packId], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  stages       PathwayStage[]
+
+  @@unique([packId, code])
+  @@map("pathways")
+}
+
+model PathwayStage {
+  id             String    @id @default(uuid())
+  pathwayId      String
+  pathway        Pathway   @relation(fields: [pathwayId], references: [id], onDelete: Cascade)
+  seq            Int
+  stageCode      String
+  ownerRole      UserRole
+  slaDays        Int
+  calendarMode   String    @default("working")
+  allowedReverts String[]
+
+  @@map("pathway_stages")
+}
+
+model Holiday {
   id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  updatedAt DateTime @updatedAt
+  date      String   // YYYY-MM-DD
+  name      String
+  regionId  String?
+  region    Region?  @relation(fields: [regionId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([date, regionId])
+  @@map("holidays")
+}
+
+// -----------------------------------------------------------------------------
+// 3. Applications & Stage Workflows
+// -----------------------------------------------------------------------------
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  RETURNED
+  APPROVED
+  REJECTED
+  CONDITIONAL
+}
+
+model Application {
+  id             String            @id @default(uuid())
+  caseNumber     String            @unique
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id])
+  typeCode       String            // EOA_EXISTING, NEW_COURSE, NEW_INSTITUTION, etc.
+  packVersion    String            @default("0.1.0")
+  currentStage   String            @default("SUBMITTED")
+  status         ApplicationStatus @default(SUBMITTED)
+  submittedAt    DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  stageInstances StageInstance[]
+  evcVisits      EvcVisit[]
+  decisions      Decision[]
+
+  @@index([institutionId])
+  @@index([status])
+  @@map("applications")
+}
+
+model StageInstance {
+  id             String         @id @default(uuid())
+  applicationId  String
+  application    Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stageCode      String
+  passNo         Int            @default(1)
+  assigneeId     String?
+  assignee       User?          @relation(fields: [assigneeId], references: [id])
+  startedAt      DateTime       @default(now())
+  completedAt    DateTime?
+  outcome        String?        // ADVANCED, RETURNED, REVERTED
+  dueOn          DateTime
+  dueVersion     Int            @default(1)
+
+  clockSegments  ClockSegment[]
+  stageEvents    StageEvent[]
+
+  @@map("stage_instances")
+}
+
+enum ClockParty {
+  AICTE
+  INSTITUTION
+  COMMITTEE
+}
+
+model ClockSegment {
+  id               String         @id @default(uuid())
+  stageInstanceId  String
+  stageInstance    StageInstance  @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
+  party            ClockParty
+  startAt          DateTime       @default(now())
+  endAt            DateTime?
+
+  @@map("clock_segments")
+}
+
+model StageEvent {
+  id               String         @id @default(uuid())
+  stageInstanceId  String
+  stageInstance    StageInstance  @relation(fields: [stageInstanceId], references: [id], onDelete: Cascade)
+  action           String
+  actorId          String
+  actorRole        UserRole
+  reason           String?
+  createdAt        DateTime       @default(now())
+
+  @@map("stage_events")
+}
+
+// -----------------------------------------------------------------------------
+// 4. EVC & Committee Modules
+// -----------------------------------------------------------------------------
+
+enum EvcStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model EvcVisit {
+  id             String       @id @default(uuid())
+  applicationId  String
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledOn    DateTime
+  dueBy          DateTime
+  reportDocId    String?
+  status         EvcStatus    @default(SCHEDULED)
+  remarks        String?
+  createdAt      DateTime     @default(now())
+
+  members        EvcMember[]
+
+  @@map("evc_visits")
+}
+
+model EvcMember {
+  id         String    @id @default(uuid())
+  visitId    String
+  visit      EvcVisit  @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  roleTitle  String    @default("MEMBER") // CONVENER or MEMBER
+
+  @@map("evc_members")
+}
+
+// -----------------------------------------------------------------------------
+// 5. Decisions & Readiness Gates
+// -----------------------------------------------------------------------------
+
+enum DecisionOutcome {
+  APPROVED
+  REJECTED
+  CONDITIONAL
+}
+
+model Decision {
+  id             String          @id @default(uuid())
+  applicationId  String
+  application    Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  outcome        DecisionOutcome
+  actorId        String
+  actorRole      UserRole
+  decidedAt      DateTime        @default(now())
+  briefHash      String          // SHA-256 hash of frozen Decision Brief
+  decisionNote   String?
+
+  readinessCheck ReadinessCheck?
+  overrides      Override[]
+  obligations    Obligation[]
+
+  @@map("decisions")
+}
+
+model ReadinessCheck {
+  id          String    @id @default(uuid())
+  decisionId  String    @unique
+  decision    Decision  @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  result      String    // GREEN, AMBER, RED
+  itemsJson   Json
+  evaluatedAt DateTime  @default(now())
+
+  @@map("readiness_checks")
+}
+
+model Override {
+  id          String    @id @default(uuid())
+  decisionId  String
+  decision    Decision  @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  checkCode   String
+  reason      String
+  flagged     Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@map("overrides")
+}
+
+// -----------------------------------------------------------------------------
+// 6. Obligation Ledger & Document Vault
+// -----------------------------------------------------------------------------
+
+enum ObligationSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+}
+
+enum ObligationStatus {
+  OPEN
+  SUBMITTED
+  VERIFIED
+  REJECTED_EVIDENCE
+  WAIVED
+  SUPERSEDED
+}
+
+model Obligation {
+  id             String             @id @default(uuid())
+  institutionId  String
+  institution    Institution        @relation(fields: [institutionId], references: [id])
+  decisionId     String?
+  decision       Decision?          @relation(fields: [decisionId], references: [id])
+  type           String             // DEFICIENCY_COMPLIANCE, UNDERTAKING, PENDING_NOC, etc.
+  sourceRef      String
+  clause         String
+  severity       ObligationSeverity @default(MAJOR)
+  title          String
+  description    String?
+  dueOn          DateTime
+  dueVersion     Int                @default(1)
+  status         ObligationStatus   @default(OPEN)
+  parentId       String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  events         ObligationEvent[]
+  evidenceLinks  EvidenceLink[]
+
+  @@index([institutionId])
+  @@index([status])
+  @@map("obligations")
+}
+
+model ObligationEvent {
+  id            String      @id @default(uuid())
+  obligationId  String
+  obligation    Obligation  @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  eventType     String      // EXTENSION, REJECTION, VERIFICATION, WAIVER
+  actorId       String
+  actorRole     UserRole
+  note          String?
+  createdAt     DateTime    @default(now())
+
+  @@map("obligation_events")
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRED
+  SUPERSEDED
+}
+
+model Document {
+  id             String         @id @default(uuid())
+  institutionId  String
+  institution    Institution    @relation(fields: [institutionId], references: [id])
+  docType        String         // LEASE_AGREEMENT, FIRE_SAFETY, BUILDING_PLAN, etc.
+  version        Int            @default(1)
+  fileName       String
+  fileKey        String
+  validFrom      DateTime
+  validTo        DateTime
+  confirmedBy    String?
+  status         DocumentStatus @default(ACTIVE)
+  uploadedAt     DateTime       @default(now())
+
+  evidenceLinks  EvidenceLink[]
+
+  @@map("documents")
+}
+
+model EvidenceLink {
+  id            String      @id @default(uuid())
+  obligationId  String
+  obligation    Obligation  @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  documentId    String
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  submittedAt   DateTime    @default(now())
+
+  @@map("evidence_links")
+}
+
+// -----------------------------------------------------------------------------
+// 7. Idempotent Alerts & Notifications
+// -----------------------------------------------------------------------------
+
+model Alert {
+  id          String    @id @default(uuid())
+  itemId      String
+  itemType    String    // STAGE, OBLIGATION, DOCUMENT
+  ruleId      String
+  level       String
+  dueVersion  Int
+  recipientId String?
+  uniqueKey   String    @unique // (itemId:ruleId:level:dueVersion)
+  sentAt      DateTime  @default(now())
+  ackAt       DateTime?
+  payload     Json?
+
+  @@map("alerts")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  recipientId String
+  recipient   User      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  channel     String    // IN_APP, EMAIL, SMS
+  title       String
+  body        String
+  status      String    @default("PENDING") // PENDING, DELIVERED, READ
+  payload     Json?
+  createdAt   DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+// -----------------------------------------------------------------------------
+// 8. Cryptographic Hash-Chained Audit Log & Seals
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id         String    @id @default(uuid())
+  sequence   Int       @default(autoincrement())
+  at         DateTime  @default(now())
+  entity     String
+  entityId   String
+  action     String
+  actorId    String
+  actorRole  UserRole
+  reason     String?
+  payload    Json
+  prevHash   String
+  hash       String
+
+  @@index([entityId])
+  @@index([actorId])
+  @@map("audit_log")
+}
+
+model AuditSeal {
+  id          String    @id @default(uuid())
+  date        String    // YYYY-MM-DD
+  entryCount  Int
+  headHash    String
+  signature   String    // Ed25519 signature
+  sealedAt    DateTime  @default(now())
+
+  @@unique([date])
+  @@map("audit_seals")
+}
+
+// -----------------------------------------------------------------------------
+// 9. Scoring & Integration Adapters
+// -----------------------------------------------------------------------------
+
+model ComplianceScore {
+  id             String       @id @default(uuid())
+  institutionId  String
+  institution    Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  score          Int
+  band           String       // GREEN, AMBER, RED
+  breakdownJson  Json
+  computedAt     DateTime     @default(now())
+
+  @@map("compliance_scores")
+}
+
+model AdapterRun {
+  id          String    @id @default(uuid())
+  source      String    // AICTE_PORTAL, NSWS
+  fileName    String
+  rowsOk      Int
+  rowsFailed  Int
+  logJson     Json
+  createdAt   DateTime  @default(now())
+
+  @@map("adapter_runs")
 }

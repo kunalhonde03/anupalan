@@ -45,6 +45,28 @@ class SystemClock {
   public reset(): void {
     this.offsetMs = 0;
   }
+
+  /**
+   * Parses an ISO string, timestamp, or Date into a Date object.
+   * Centralizes all Date instantiations to satisfy Invariant 2.
+   */
+  public parse(val: string | number | Date): Date {
+    return new Date(val);
+  }
+
+  /**
+   * Adds milliseconds to a Date.
+   */
+  public addMs(date: Date, ms: number): Date {
+    return new Date(date.getTime() + ms);
+  }
+
+  /**
+   * Adds calendar days to a Date.
+   */
+  public addDays(date: Date, days: number): Date {
+    return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+  }
 }
 
 export const clock = new SystemClock();
